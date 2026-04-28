@@ -5,7 +5,7 @@ project:
   name: "Wine YouTube Weekly"
   language: "ko"
   topic_hint: "와인"
-  repo_fallback: "SaraHan774/wine-weekly-monitor"
+  repo_fallback: "SaraHan774/weekly-monitor"
 
 discovery:
   lookback_days: 7
