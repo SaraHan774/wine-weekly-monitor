@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mrss/"
+      xmlns="http://www.w3.org/2005/Atom">
+  <title>Test Channel</title>
+  <yt:channelId>UCtest12345</yt:channelId>
+
+  <entry>
+    <yt:videoId>vid_recent_a</yt:videoId>
+    <yt:channelId>UCtest12345</yt:channelId>
+    <title>Recent video A</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=vid_recent_a"/>
+    <published>2026-04-24T10:00:00+00:00</published>
+  </entry>
+
+  <entry>
+    <yt:videoId>vid_recent_b</yt:videoId>
+    <yt:channelId>UCtest12345</yt:channelId>
+    <title>Recent video B (a Short by URL)</title>
+    <link rel="alternate" href="https://www.youtube.com/shorts/vid_recent_b"/>
+    <published>2026-04-23T10:00:00+00:00</published>
+  </entry>
+
+  <entry>
+    <yt:videoId>vid_old</yt:videoId>
+    <yt:channelId>UCtest12345</yt:channelId>
+    <title>Old video</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=vid_old"/>
+    <published>2026-01-01T10:00:00+00:00</published>
+  </entry>
+
+  <entry>
+    <yt:videoId>vid_no_title</yt:videoId>
+    <yt:channelId>UCtest12345</yt:channelId>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=vid_no_title"/>
+    <published>2026-04-22T10:00:00+00:00</published>
+  </entry>
+</feed>
