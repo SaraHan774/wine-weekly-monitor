@@ -65,22 +65,22 @@ def test_load_rejects_zero_lookback_days(tmp_path):
         load_config(path)
 
 
-def test_validate_runtime_passes_when_processing_with_anthropic_key(monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+def test_validate_runtime_passes_when_processing_with_gemini_key(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "sk-test")
     cfg = {"notification": {"channel": "none"}}
     validate_runtime(cfg, will_send_email=False, will_process=True)  # no raise
 
 
-def test_validate_runtime_fails_when_processing_without_anthropic_key(monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+def test_validate_runtime_fails_when_processing_without_gemini_key(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     cfg = {"notification": {"channel": "none"}}
     with pytest.raises(SystemExit) as exc:
         validate_runtime(cfg, will_send_email=False, will_process=True)
-    assert "ANTHROPIC_API_KEY" in str(exc.value)
+    assert "GEMINI_API_KEY" in str(exc.value)
 
 
-def test_validate_runtime_skips_anthropic_check_when_no_process(monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+def test_validate_runtime_skips_gemini_check_when_no_process(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     cfg = {"notification": {"channel": "none"}}
     validate_runtime(cfg, will_send_email=False, will_process=False)  # no raise
 
@@ -108,14 +108,14 @@ def test_validate_runtime_skips_gmail_for_none_channel(monkeypatch):
 
 
 def test_validate_runtime_aggregates_all_missing_vars(monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GMAIL_USER", raising=False)
     monkeypatch.delenv("GMAIL_APP_PASSWORD", raising=False)
     cfg = {"notification": {"channel": "gmail"}}
     with pytest.raises(SystemExit) as exc:
         validate_runtime(cfg, will_send_email=True, will_process=True)
     msg = str(exc.value)
-    assert "ANTHROPIC_API_KEY" in msg
+    assert "GEMINI_API_KEY" in msg
     assert "GMAIL_USER" in msg
     assert "GMAIL_APP_PASSWORD" in msg
 

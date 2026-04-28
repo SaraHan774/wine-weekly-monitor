@@ -1,6 +1,6 @@
 # YouTube Topic Monitor
 
-Weekly automated digest of the top YouTube videos for any topic. This repo runs a scheduled GitHub Actions workflow that scans a curated channel list, picks the most-viewed recent uploads, transcribes them with Whisper, summarizes them with Claude, commits a markdown report, and emails the link.
+Weekly automated digest of the top YouTube videos for any topic. This repo runs a scheduled GitHub Actions workflow that scans a curated channel list, picks the most-viewed recent uploads, transcribes them with Whisper, summarizes them with Gemini, commits a markdown report, and emails the link.
 
 The default instance is wine — see `channels.yaml` and `config.yaml`. Fork and edit those two files to switch topic.
 
@@ -8,7 +8,7 @@ The default instance is wine — see `channels.yaml` and `config.yaml`. Fork and
 
 1. Scans the YouTube channels listed in `channels.yaml` for videos uploaded in the last `discovery.lookback_days` days
 2. Ranks them by view count and picks the top `discovery.top_n`
-3. Downloads audio, transcribes it with Whisper, and summarizes with Claude
+3. Downloads audio, transcribes it with Whisper, and summarizes with Gemini
 4. Commits a markdown report to `reports/YYYY-Www.md` (configurable)
 5. Emails the report link
 
@@ -20,7 +20,7 @@ Settings → Secrets and variables → Actions → **New repository secret**:
 
 | Name | Value |
 |---|---|
-| `ANTHROPIC_API_KEY` | Your Claude API key |
+| `GEMINI_API_KEY` | Your Google AI Studio API key (free tier — https://aistudio.google.com/app/apikey) |
 | `GMAIL_USER` | Gmail address used to send the email |
 | `GMAIL_APP_PASSWORD` | Gmail app password (16 chars, spaces removed is fine) |
 
@@ -45,11 +45,11 @@ For a smoke test, set `channels_limit` to 3 and `skip_email` to true on manual d
 pip install -r requirements.txt
 
 # Discovery only (no download/transcribe/email) against 3 channels
-ANTHROPIC_API_KEY=... python monitor.py \
+GEMINI_API_KEY=... python monitor.py \
     --channels-limit 3 --no-process --no-email
 
 # Full end-to-end against 2 channels, skipping email
-ANTHROPIC_API_KEY=... python monitor.py \
+GEMINI_API_KEY=... python monitor.py \
     --channels-limit 2 --top 2 --no-email
 ```
 
@@ -61,7 +61,7 @@ This monitor is designed to be invoked by other AI agents as well as humans. Con
 
 - **Entry point**: `python monitor.py [flags]`
 - **Help**: `python monitor.py --help` — non-interactive, lists all flags
-- **Dry run**: `--dry-run` (or the equivalent `--no-process --no-email`) skips all expensive side effects (no Claude calls, no email, no audio download, no state writes). The discovery + ranking still runs and prints the selected videos. No env vars are required for dry-run.
+- **Dry run**: `--dry-run` (or the equivalent `--no-process --no-email`) skips all expensive side effects (no Gemini calls, no email, no audio download, no state writes). The discovery + ranking still runs and prints the selected videos. No env vars are required for dry-run.
 - **Exit codes**: `0` on success or graceful skip (no new videos); `2` if at least one video failed to process; non-zero `SystemExit` on missing env vars, invalid config, or unhandled error
 - **Output mode** (`--output`):
   - `text` (default): final stdout line `RESULT processed=<N> succeeded=<N> failed=<N> report=<path|none> url=<github-url|none>`
@@ -85,7 +85,7 @@ This monitor is designed to be invoked by other AI agents as well as humans. Con
 - **Side effects** when not in dry run:
   - Writes `<config.report.output_dir>/<config.report.filename_pattern>` (default `reports/YYYY-Www.md`)
   - Writes `<output_dir>/.processed.json` (cross-run dedupe state, auto-pruned after 90 days)
-  - Calls Anthropic API for each processed video (Claude cost; retries up to `processing.retry_attempts` per stage)
+  - Calls the Gemini API for each processed video (free tier today; retries up to `processing.retry_attempts` per stage)
   - Calls Gmail SMTP if notification channel is gmail and `--no-email` is not set
   - Writes to `/tmp/youtube-monitor/<video_id>` during processing (cleaned up per video)
 - **Configuration**: read `config.yaml`. Override individual fields with `--days`, `--top`, `--no-process`, `--no-email`, `--channels-limit`. Pass an alternate config with `--config path/to/other.yaml`.
@@ -98,7 +98,8 @@ This monitor is designed to be invoked by other AI agents as well as humans. Con
 - `config.py` / `config.yaml` — behavior knobs and runtime validation
 - `discovery.py` — YouTube RSS + yt-dlp view-count fetcher (no YouTube Data API required)
 - `notifier.py` — Gmail SMTP sender
-- [ytt](https://github.com/SaraHan774/ytt) — transcription + Claude summarization library, installed from git
+- `gemini_summarize.py` — Gemini-backed summarizer (returns `{short_summary, long_summary}`)
+- [ytt](https://github.com/SaraHan774/ytt) — download + audio chunking + Whisper transcription library, installed from git (its built-in Claude summarizer is unused; we call our own Gemini one)
 
 ## Schedule
 

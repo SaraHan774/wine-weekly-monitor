@@ -81,7 +81,7 @@ def test_help_exits_zero_and_lists_required_flags():
 
 
 def test_dry_run_with_no_channels_emits_result_line(empty_setup):
-    env = _hermetic_env({"ANTHROPIC_API_KEY": "sk-test"})
+    env = _hermetic_env({"GEMINI_API_KEY": "sk-test"})
     result = _run(
         ["--no-process", "--no-email", "--config", "config.yaml", "--channels-file", "channels.yaml"],
         env=env,
@@ -95,16 +95,16 @@ def test_dry_run_with_no_channels_emits_result_line(empty_setup):
     assert "failed=0" in last_line
 
 
-def test_missing_anthropic_key_aborts_before_processing(empty_setup):
+def test_missing_gemini_key_aborts_before_processing(empty_setup):
     # Don't pass --no-process, so processing path is requested → key required
-    env = _hermetic_env()  # no ANTHROPIC_API_KEY
+    env = _hermetic_env()  # no GEMINI_API_KEY
     result = _run(
         ["--no-email", "--config", "config.yaml", "--channels-file", "channels.yaml"],
         env=env,
         cwd=empty_setup,
     )
     assert result.returncode != 0
-    assert "ANTHROPIC_API_KEY" in result.stderr
+    assert "GEMINI_API_KEY" in result.stderr
 
 
 def test_missing_gmail_vars_aborts_when_emailing_via_gmail(empty_setup):
@@ -118,7 +118,7 @@ def test_missing_gmail_vars_aborts_when_emailing_via_gmail(empty_setup):
         ).strip(),
         encoding="utf-8",
     )
-    env = _hermetic_env({"ANTHROPIC_API_KEY": "sk-test"})  # no GMAIL_*
+    env = _hermetic_env({"GEMINI_API_KEY": "sk-test"})  # no GMAIL_*
     result = _run(
         ["--no-process", "--config", "config.yaml", "--channels-file", "channels.yaml"],
         env=env,
@@ -139,7 +139,7 @@ def test_no_email_skips_gmail_validation(empty_setup):
         ).strip(),
         encoding="utf-8",
     )
-    env = _hermetic_env({"ANTHROPIC_API_KEY": "sk-test"})
+    env = _hermetic_env({"GEMINI_API_KEY": "sk-test"})
     result = _run(
         ["--no-process", "--no-email", "--config", "config.yaml", "--channels-file", "channels.yaml"],
         env=env,
@@ -152,7 +152,7 @@ def test_invalid_config_fails_with_clear_message(empty_setup):
     (empty_setup / "config.yaml").write_text(
         "notification:\n  channel: 'carrier-pigeon'\n", encoding="utf-8"
     )
-    env = _hermetic_env({"ANTHROPIC_API_KEY": "sk-test"})
+    env = _hermetic_env({"GEMINI_API_KEY": "sk-test"})
     result = _run(
         ["--no-process", "--no-email", "--config", "config.yaml", "--channels-file", "channels.yaml"],
         env=env,
@@ -168,7 +168,7 @@ def test_help_lists_output_flag():
 
 
 def test_output_json_emits_parseable_object_on_empty_run(empty_setup):
-    env = _hermetic_env({"ANTHROPIC_API_KEY": "sk-test"})
+    env = _hermetic_env({"GEMINI_API_KEY": "sk-test"})
     result = _run(
         ["--no-process", "--no-email", "--output", "json",
          "--config", "config.yaml", "--channels-file", "channels.yaml"],
@@ -189,7 +189,7 @@ def test_output_json_emits_parseable_object_on_empty_run(empty_setup):
 
 def test_output_json_keeps_logs_on_stderr(empty_setup):
     """Stdout must be JSON-only so agents can json.loads(result.stdout) without preprocessing."""
-    env = _hermetic_env({"ANTHROPIC_API_KEY": "sk-test"})
+    env = _hermetic_env({"GEMINI_API_KEY": "sk-test"})
     result = _run(
         ["--no-process", "--no-email", "--output", "json",
          "--config", "config.yaml", "--channels-file", "channels.yaml"],
@@ -203,7 +203,7 @@ def test_output_json_keeps_logs_on_stderr(empty_setup):
 
 def test_output_text_default_emits_result_line(empty_setup):
     """Default output mode is unchanged from before --output was added."""
-    env = _hermetic_env({"ANTHROPIC_API_KEY": "sk-test"})
+    env = _hermetic_env({"GEMINI_API_KEY": "sk-test"})
     result = _run(
         ["--no-process", "--no-email",
          "--config", "config.yaml", "--channels-file", "channels.yaml"],
@@ -227,7 +227,7 @@ def test_help_lists_dry_run_flag():
 
 def test_dry_run_flag_alone_skips_processing_and_email(empty_setup):
     """--dry-run is shorthand for --no-process --no-email — no env vars needed."""
-    env = _hermetic_env()  # no ANTHROPIC_API_KEY, no GMAIL_*
+    env = _hermetic_env()  # no GEMINI_API_KEY, no GMAIL_*
     result = _run(
         ["--dry-run", "--config", "config.yaml", "--channels-file", "channels.yaml"],
         env=env,

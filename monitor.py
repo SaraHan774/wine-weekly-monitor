@@ -119,9 +119,10 @@ def process_video(video: Dict, workdir: Path, cfg: Dict[str, Any]) -> Dict:
         chunk_audio,
         cleanup_temp_files,
         download_youtube,
-        summarize_with_claude,
         transcribe_audio,
     )
+
+    from gemini_summarize import summarize_with_gemini
 
     proc = cfg["processing"]
     whisper_kwargs = dict(
@@ -156,7 +157,7 @@ def process_video(video: Dict, workdir: Path, cfg: Dict[str, Any]) -> Dict:
 
         stage = "summarize"
         summary = with_retry(
-            lambda: summarize_with_claude(transcripts, language=cfg["project"]["language"]),
+            lambda: summarize_with_gemini(transcripts, language=cfg["project"]["language"]),
             label=f"summarize {video['video_id']}", **retry_kwargs,
         )
 

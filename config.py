@@ -92,8 +92,8 @@ def validate_runtime(cfg: Dict[str, Any], *, will_send_email: bool, will_process
     rather than crashing mid-pipeline (agent-friendly: error before side effects start).
     """
     missing: list[str] = []
-    if will_process and not os.environ.get("ANTHROPIC_API_KEY"):
-        missing.append("ANTHROPIC_API_KEY (required for summarization; pass --no-process to skip)")
+    if will_process and not os.environ.get("GEMINI_API_KEY"):
+        missing.append("GEMINI_API_KEY (required for summarization; pass --no-process to skip)")
     if will_send_email and cfg["notification"]["channel"] == "gmail":
         for var in ("GMAIL_USER", "GMAIL_APP_PASSWORD"):
             if not os.environ.get(var):

@@ -14,16 +14,16 @@ Generic "YouTube topic monitor": scheduled GitHub Actions job (default Sunday 00
 pip install -r requirements.txt   # also installs ytt from git
 ```
 
-`ffmpeg` must be on PATH for audio chunking. Required env vars: `ANTHROPIC_API_KEY` (only when processing — `--no-process` skips); `GMAIL_USER` + `GMAIL_APP_PASSWORD` (only when sending email and `notification.channel == "gmail"` — `--no-email` skips). Missing env vars are reported up front by `config.validate_runtime`, before any side effects start.
+`ffmpeg` must be on PATH for audio chunking. Required env vars: `GEMINI_API_KEY` (only when processing — `--no-process` skips); `GMAIL_USER` + `GMAIL_APP_PASSWORD` (only when sending email and `notification.channel == "gmail"` — `--no-email` skips). Missing env vars are reported up front by `config.validate_runtime`, before any side effects start.
 
 Common dry-run invocations:
 
 ```bash
-# Discovery only — no audio download, no Claude calls, no email
-ANTHROPIC_API_KEY=... python monitor.py --channels-limit 3 --no-process --no-email
+# Discovery only — no audio download, no Gemini calls, no email
+GEMINI_API_KEY=... python monitor.py --channels-limit 3 --no-process --no-email
 
 # Full pipeline against 2 channels, 2 top videos, no email
-ANTHROPIC_API_KEY=... python monitor.py --channels-limit 2 --top 2 --no-email
+GEMINI_API_KEY=... python monitor.py --channels-limit 2 --top 2 --no-email
 ```
 
 Flags: `--config PATH` (alternate config), `--days N` (lookback window), `--top N` (videos to process), `--channels-limit N` (subset), `--no-process` (skip transcribe/summarize), `--no-email`, `--dry-run` (shorthand for `--no-process --no-email`), `--output {text,json}` (stdout format; logs go to stderr in both modes). All flag values override the corresponding `config.yaml` field for that run.
@@ -66,7 +66,9 @@ Three-stage pipeline orchestrated by `monitor.py:main`:
 
 ## Key external dependency: `ytt`
 
-The `ytt` library does the heavy lifting (download, audio chunking, Whisper transcription, Claude summarization). It is **not in this repo** — it lives at https://github.com/SaraHan774/ytt and is pinned by `requirements.txt`. If the pipeline breaks at the processing stage, check that repo's API for `chunk_audio / cleanup_temp_files / download_youtube / summarize_with_claude / transcribe_audio` (the five functions imported in `process_video`). `summarize_with_claude` returns `{short_summary, long_summary}` and reads `ANTHROPIC_API_KEY` from env.
+The `ytt` library does download, audio chunking, and Whisper transcription. It is **not in this repo** — it lives at https://github.com/SaraHan774/ytt and is pinned by `requirements.txt`. If the pipeline breaks at the download/transcribe stage, check that repo's API for `chunk_audio / cleanup_temp_files / download_youtube / transcribe_audio` (the four functions imported in `process_video`).
+
+Summarization uses **Gemini**, not Claude — `gemini_summarize.py:summarize_with_gemini` (lives in this repo) returns `{short_summary, long_summary}` and reads `GEMINI_API_KEY` from env. We swapped off `ytt.summarize_with_claude` to use Google's free tier (~10 RPM is enough for the weekly cadence).
 
 ## Editing the channel list
 
@@ -76,4 +78,4 @@ The `ytt` library does the heavy lifting (download, audio chunking, Whisper tran
 
 `.github/workflows/monitor.yml` runs on cron `0 0 * * 0` and on `workflow_dispatch` (manual). Manual dispatch exposes `channels_limit` and `skip_email` inputs for smoke testing. The workflow caches `~/.cache/huggingface` (key `whisper-base-v1`) so re-runs don't re-download the Whisper model. After the run, the job stages `reports/`, commits as `github-actions[bot]`, and pushes to the same branch — `permissions: contents: write` is required for that push, and `permissions: issues: write` lets the failure-notify step open a labeled issue (`monitor-failure`) when any step fails. Timeout is 330 minutes; concurrency group `monitor` prevents overlapping runs.
 
-Three secrets must be set in repo settings: `ANTHROPIC_API_KEY`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`.
+Three secrets must be set in repo settings: `GEMINI_API_KEY`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`.
