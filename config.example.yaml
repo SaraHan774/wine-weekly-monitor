@@ -1,0 +1,57 @@
+# YouTube Topic Monitor — configuration template.
+# Copy to config.yaml and edit. Defaults shown below; omit any key to use the default.
+
+project:
+  # Display name used in report titles and email subject lines.
+  name: "YouTube Topic Weekly"
+  # Two-letter language code passed to summarizer ("ko", "en", "ja", ...).
+  language: "ko"
+  # Optional: short topic hint used in summary prompts (improves domain term recognition).
+  # Leave empty to disable.
+  topic_hint: ""
+  # Fallback "owner/repo" used to build the report URL when GITHUB_REPOSITORY env is missing.
+  # Only used in local runs; CI sets GITHUB_REPOSITORY automatically.
+  repo_fallback: "owner/repo"
+
+discovery:
+  # Lookback window in days. Videos older than this are ignored.
+  lookback_days: 7
+  # Number of top-ranked videos to process per run.
+  top_n: 10
+  # Extra candidates to discover beyond top_n, used as fallback when processing fails.
+  # Final report still has top_n successful entries (if available).
+  fallback_buffer: 5
+  # Videos shorter than this many seconds are treated as Shorts and dropped.
+  shorts_min_duration_sec: 60
+
+processing:
+  # Whisper model size: "tiny" | "base" | "small" | "medium" | "large".
+  # Larger = better accuracy, much slower, more memory.
+  whisper_model: "base"
+  # Audio chunk length in seconds. Smaller = more parallelism, more overhead.
+  segment_length_sec: 300
+  # Whisper beam size. 1 = greedy (fastest), 5 = default (slower, slightly better).
+  beam_size: 1
+  # Total attempts for each per-video stage (download/transcribe/summarize).
+  # 2 = one retry on transient failure. Higher = more resilient but more API cost.
+  retry_attempts: 2
+  # Initial backoff between retries (doubles per attempt).
+  retry_backoff_sec: 2.0
+
+report:
+  # Directory where weekly reports are written, relative to repo root.
+  output_dir: "reports"
+  # Filename pattern. Available placeholders: {year}, {week}, {date}.
+  filename_pattern: "{year}-W{week:02d}.md"
+  # Title pattern shown at the top of each report. Same placeholders + {project_name}.
+  title_pattern: "{project_name} — {year}-W{week:02d}"
+
+notification:
+  # Channel: "gmail" | "none". (Slack/Discord planned.)
+  channel: "gmail"
+  # Recipient email; null = send to GMAIL_USER (yourself).
+  recipient: null
+  # Subject pattern. Placeholders: {project_name}, {year}, {week}.
+  subject_pattern: "{project_name} — {year}-W{week:02d}"
+  # Intro line at the top of the email body.
+  body_intro: "이번 주 요약 리포트가 준비됐어요."

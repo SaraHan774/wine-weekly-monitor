@@ -1,16 +1,16 @@
-# Wine Weekly Monitor
+# YouTube Topic Monitor
 
-Automated weekly digest of the top wine YouTube videos.
+Weekly automated digest of the top YouTube videos for any topic. This repo runs a scheduled GitHub Actions workflow that scans a curated channel list, picks the most-viewed recent uploads, transcribes them with Whisper, summarizes them with Claude, commits a markdown report, and emails the link.
 
-## What it does
+The default instance is wine — see `channels.yaml` and `config.yaml`. Fork and edit those two files to switch topic.
 
-Every Sunday at 09:00 KST, the workflow:
+## What it does (default schedule: Sunday 09:00 KST)
 
-1. Scans 50 curated wine YouTube channels for videos uploaded in the last 7 days
-2. Ranks them by view count and picks the top 10
+1. Scans the YouTube channels listed in `channels.yaml` for videos uploaded in the last `discovery.lookback_days` days
+2. Ranks them by view count and picks the top `discovery.top_n`
 3. Downloads audio, transcribes it with Whisper, and summarizes with Claude
-4. Commits a markdown report to `reports/YYYY-Www.md`
-5. Emails the report link to the configured recipient
+4. Commits a markdown report to `reports/YYYY-Www.md` (configurable)
+5. Emails the report link
 
 ## Setup
 
@@ -24,14 +24,18 @@ Settings → Secrets and variables → Actions → **New repository secret**:
 | `GMAIL_USER` | Gmail address used to send the email |
 | `GMAIL_APP_PASSWORD` | Gmail app password (16 chars, spaces removed is fine) |
 
-### 2. (Optional) Edit the channel list
+### 2. Edit `config.yaml`
 
-See [channels.yaml](channels.yaml). Each entry needs `name` and `channel_id` (the `UC...` identifier from the YouTube channel URL).
+All behavior knobs (project name, summary language, top_n, lookback days, Whisper model, report template, email subject) live in `config.yaml`. See `config.example.yaml` for the full schema with comments. Code stays untouched when you change topic.
 
-### 3. Trigger the first run
+### 3. Edit the channel list
 
-- Actions tab → **Weekly Wine Monitor** → **Run workflow**
-- Or wait for the next Sunday 00:00 UTC
+See `channels.yaml`. Each entry needs `name` and `channel_id` (the `UC...` identifier from the YouTube channel URL).
+
+### 4. Trigger the first run
+
+- Actions tab → **YouTube Topic Monitor** → **Run workflow**
+- Or wait for the next scheduled run
 
 For a smoke test, set `channels_limit` to 3 and `skip_email` to true on manual dispatch.
 
@@ -41,23 +45,61 @@ For a smoke test, set `channels_limit` to 3 and `skip_email` to true on manual d
 pip install -r requirements.txt
 
 # Discovery only (no download/transcribe/email) against 3 channels
-ANTHROPIC_API_KEY=... python weekly_monitor.py \
+ANTHROPIC_API_KEY=... python monitor.py \
     --channels-limit 3 --no-process --no-email
 
 # Full end-to-end against 2 channels, skipping email
-ANTHROPIC_API_KEY=... python weekly_monitor.py \
+ANTHROPIC_API_KEY=... python monitor.py \
     --channels-limit 2 --top 2 --no-email
 ```
 
-`ffmpeg` must be on PATH for audio chunking.
+`ffmpeg` must be on PATH for audio chunking. Missing env vars are reported up front before any side effects start.
+
+## For AI agents
+
+This monitor is designed to be invoked by other AI agents as well as humans. Contract:
+
+- **Entry point**: `python monitor.py [flags]`
+- **Help**: `python monitor.py --help` — non-interactive, lists all flags
+- **Dry run**: `--dry-run` (or the equivalent `--no-process --no-email`) skips all expensive side effects (no Claude calls, no email, no audio download, no state writes). The discovery + ranking still runs and prints the selected videos. No env vars are required for dry-run.
+- **Exit codes**: `0` on success or graceful skip (no new videos); `2` if at least one video failed to process; non-zero `SystemExit` on missing env vars, invalid config, or unhandled error
+- **Output mode** (`--output`):
+  - `text` (default): final stdout line `RESULT processed=<N> succeeded=<N> failed=<N> report=<path|none> url=<github-url|none>`
+  - `json`: stdout is a single JSON object, logs stay on stderr. Schema:
+    ```json
+    {
+      "processed": 0, "succeeded": 0, "failed": 0,
+      "report_path": "reports/2026-W17.md" | null,
+      "report_url": "https://github.com/..." | null,
+      "videos": [
+        {
+          "video_id": "...", "channel_id": "...", "channel_name": "...",
+          "title": "...", "url": "...", "view_count": 0, "duration": 0,
+          "status": "ok" | "failed" | null,
+          "failed_stage": "download" | "chunk" | "transcribe" | "summarize" | null,
+          "short_summary": "..." | null
+        }
+      ]
+    }
+    ```
+- **Side effects** when not in dry run:
+  - Writes `<config.report.output_dir>/<config.report.filename_pattern>` (default `reports/YYYY-Www.md`)
+  - Writes `<output_dir>/.processed.json` (cross-run dedupe state, auto-pruned after 90 days)
+  - Calls Anthropic API for each processed video (Claude cost; retries up to `processing.retry_attempts` per stage)
+  - Calls Gmail SMTP if notification channel is gmail and `--no-email` is not set
+  - Writes to `/tmp/youtube-monitor/<video_id>` during processing (cleaned up per video)
+- **Configuration**: read `config.yaml`. Override individual fields with `--days`, `--top`, `--no-process`, `--no-email`, `--channels-limit`. Pass an alternate config with `--config path/to/other.yaml`.
+- **Per-video failure** is captured in the report (`status: failed`, `failed_stage`) rather than aborting the run. Each stage gets `processing.retry_attempts - 1` automatic retries on transient failure.
+- **Cross-run dedupe**: a video processed successfully in week N is skipped when it reappears in week N+1's RSS feed.
 
 ## Architecture
 
-- [weekly_monitor.py](weekly_monitor.py) — orchestrator
-- [discovery.py](discovery.py) — YouTube RSS + yt-dlp view-count fetcher (no YouTube Data API required)
-- [notifier.py](notifier.py) — Gmail SMTP sender
+- `monitor.py` — orchestrator
+- `config.py` / `config.yaml` — behavior knobs and runtime validation
+- `discovery.py` — YouTube RSS + yt-dlp view-count fetcher (no YouTube Data API required)
+- `notifier.py` — Gmail SMTP sender
 - [ytt](https://github.com/SaraHan774/ytt) — transcription + Claude summarization library, installed from git
 
 ## Schedule
 
-Workflow runs every Sunday at `00:00 UTC` (09:00 KST). Change the cron in [.github/workflows/weekly.yml](.github/workflows/weekly.yml) if you want a different time.
+Workflow runs every Sunday at `00:00 UTC` (09:00 KST). Change the cron in `.github/workflows/monitor.yml` if you want a different time. Workflow failures (e.g. dependency install fails) auto-create a labeled GitHub issue.

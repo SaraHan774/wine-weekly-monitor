@@ -1,0 +1,30 @@
+# Wine instance of the YouTube Topic Monitor.
+# See config.example.yaml for full documentation of every key.
+
+project:
+  name: "Wine YouTube Weekly"
+  language: "ko"
+  topic_hint: "와인"
+  repo_fallback: "SaraHan774/wine-weekly-monitor"
+
+discovery:
+  lookback_days: 7
+  top_n: 10
+  fallback_buffer: 5
+  shorts_min_duration_sec: 60
+
+processing:
+  whisper_model: "base"
+  segment_length_sec: 300
+  beam_size: 1
+
+report:
+  output_dir: "reports"
+  filename_pattern: "{year}-W{week:02d}.md"
+  title_pattern: "{project_name} — {year}-W{week:02d}"
+
+notification:
+  channel: "gmail"
+  recipient: null
+  subject_pattern: "{project_name} — {year}-W{week:02d}"
+  body_intro: "이번 주 와인 유튜브 요약 리포트가 준비됐어요."

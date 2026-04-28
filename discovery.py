@@ -17,27 +17,18 @@ RSS_NAMESPACES = {
 }
 
 
-def fetch_recent_from_rss(channel_id: str, days: int = 7) -> List[Dict]:
-    """Fetch uploads from a channel's public RSS feed, filtered to the last `days` days.
+def parse_rss(data: bytes, channel_id: str, cutoff: datetime) -> List[Dict]:
+    """Parse YouTube RSS XML bytes, returning entries newer than `cutoff`.
 
-    YouTube RSS returns the 15 most recent uploads — enough for weekly monitoring.
+    Pure function — no network, no clock. Caller passes the already-fetched bytes
+    and the cutoff datetime. Malformed XML returns an empty list (logged).
     """
-    url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = resp.read()
-    except (urllib.error.URLError, TimeoutError) as e:
-        logger.warning(f"RSS fetch failed for {channel_id}: {e}")
-        return []
-
     try:
         root = ET.fromstring(data)
     except ET.ParseError as e:
         logger.warning(f"RSS parse failed for {channel_id}: {e}")
         return []
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     results = []
     for entry in root.findall("atom:entry", RSS_NAMESPACES):
         pub_el = entry.find("atom:published", RSS_NAMESPACES)
@@ -61,6 +52,24 @@ def fetch_recent_from_rss(channel_id: str, days: int = 7) -> List[Dict]:
     return results
 
 
+def fetch_recent_from_rss(channel_id: str, days: int = 7) -> List[Dict]:
+    """Fetch uploads from a channel's public RSS feed, filtered to the last `days` days.
+
+    YouTube RSS returns the 15 most recent uploads — enough for weekly monitoring.
+    """
+    url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = resp.read()
+    except (urllib.error.URLError, TimeoutError) as e:
+        logger.warning(f"RSS fetch failed for {channel_id}: {e}")
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    return parse_rss(data, channel_id, cutoff)
+
+
 def fetch_view_count(video_url: str) -> Optional[Dict]:
     """Fetch view count + duration for a single video via yt-dlp (no download)."""
     ydl_opts = {
@@ -82,27 +91,29 @@ def fetch_view_count(video_url: str) -> Optional[Dict]:
     }
 
 
-SHORTS_MIN_DURATION_SEC = 60
-
-
-def _is_short(video: Dict) -> bool:
+def _is_short(video: Dict, min_duration_sec: int) -> bool:
     """YouTube Shorts are unsuitable for transcript summarization (too brief, often visual-only)."""
     if "/shorts/" in video.get("url", ""):
         return True
     duration = video.get("duration", 0)
-    if duration and duration < SHORTS_MIN_DURATION_SEC:
+    if duration and duration < min_duration_sec:
         return True
     return False
 
 
-def discover_top_videos(channels: List[Dict], days: int = 7, top_n: int = 10) -> List[Dict]:
+def discover_top_videos(
+    channels: List[Dict],
+    days: int = 7,
+    top_n: int = 10,
+    shorts_min_duration_sec: int = 60,
+) -> List[Dict]:
     """Discover the top N most-viewed non-Shorts videos uploaded across all channels in the last `days` days."""
     candidates: List[Dict] = []
     logger.info(f"Scanning {len(channels)} channels for videos from the last {days} days")
 
     for ch in channels:
         recent = fetch_recent_from_rss(ch["channel_id"], days=days)
-        kept = [v for v in recent if not _is_short(v)]
+        kept = [v for v in recent if not _is_short(v, shorts_min_duration_sec)]
         for v in kept:
             v["channel_name"] = ch["name"]
             candidates.append(v)
@@ -123,7 +134,7 @@ def discover_top_videos(channels: List[Dict], days: int = 7, top_n: int = 10) ->
         else:
             v.update(meta)
         # Duration-based Shorts filter — catches anything RSS didn't flag via URL
-        if _is_short(v):
+        if _is_short(v, shorts_min_duration_sec):
             continue
         final.append(v)
 
